@@ -147,9 +147,72 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ==================== DADOS (INALTERADOS) ====================
-@st.cache_data(ttl=300)
-def carregar_dados():
+# ==================== DADOS ====================
+# Fonte principal: aba "Dados_Dashboard" do Google Sheets (leitura somente).
+# Se a planilha não estiver conectada, usa a cópia local de 13/10/2026 e AVISA na tela.
+import re
+
+SHEET_ID_PADRAO = "1CzVvrskLv_L2HTiki9qfgrc25lZKSm1bDSYdpWlLcHo"
+ABA_DADOS = "Dados_Dashboard"
+COLUNAS = ["Nº", "Nome da Obra", "Valor Contrato", "Total Medido", "Saldo a Receber", "% Medido", "Status"]
+
+
+def _num(v):
+    """Converte número da planilha (ou texto 'R$ 1.234,56' / '86,0%') em float."""
+    if isinstance(v, (int, float)):
+        return float(v)
+    s = str(v).strip()
+    if s in ("", "-"):
+        return 0.0
+    pct = s.endswith("%")
+    s = s.replace("R$", "").replace("%", "").replace(" ", "").replace("\u00a0", "")
+    s = s.replace(".", "").replace(",", ".")
+    x = float(s)
+    return x / 100 if pct else x
+
+
+def _ler_linhas_planilha():
+    import gspread
+    from google.oauth2.service_account import Credentials
+    creds = Credentials.from_service_account_info(
+        dict(st.secrets["gcp_service_account"]),
+        scopes=["https://www.googleapis.com/auth/spreadsheets.readonly"],
+    )
+    gc = gspread.authorize(creds)
+    sh = gc.open_by_key(st.secrets.get("sheet_id", SHEET_ID_PADRAO))
+    return sh.worksheet(ABA_DADOS).get_all_values(value_render_option="UNFORMATTED_VALUE")
+
+
+def _interpretar(linhas):
+    """Acha o cabeçalho (coluna 'Nº'), lê as obras e ignora a linha TOTAL."""
+    topo = " ".join(str(c) for r in linhas[:6] for c in r)
+    m = re.search(r"Atualizado em:?\s*(\d{2}/\d{2}/\d{4}\s+\d{2}:\d{2})", topo)
+    atualizado = m.group(1) if m else None
+
+    ih = next(i for i, r in enumerate(linhas) if str(r[0]).strip() == "Nº")
+    cab = [str(c).strip() for c in linhas[ih]]
+    pos = {c: cab.index(c) for c in COLUNAS}
+
+    registros = []
+    for r in linhas[ih + 1:]:
+        n = str(r[0]).strip()
+        if not n.replace(".0", "").isdigit():
+            break  # chegou na linha TOTAL ou no fim
+        registros.append({
+            "Nº": int(float(n)),
+            "Nome da Obra": str(r[pos["Nome da Obra"]]).strip(),
+            "Valor Contrato": _num(r[pos["Valor Contrato"]]),
+            "Total Medido": _num(r[pos["Total Medido"]]),
+            "Saldo a Receber": _num(r[pos["Saldo a Receber"]]),
+            "% Medido": _num(r[pos["% Medido"]]),
+            "Status": str(r[pos["Status"]]).strip(),
+        })
+    if not registros:
+        raise ValueError("Nenhuma obra encontrada na aba Dados_Dashboard.")
+    return pd.DataFrame(registros, columns=COLUNAS), atualizado
+
+
+def _dados_locais():
     data = {
         "Nº": list(range(1, 16)),
         "Nome da Obra": [
@@ -194,23 +257,44 @@ def carregar_dados():
     }
     return pd.DataFrame(data)
 
-df = carregar_dados()
+
+@st.cache_data(ttl=300, show_spinner=False)
+def carregar_dados():
+    """Retorna (tabela, data_de_atualização_da_planilha, origem, erro)."""
+    try:
+        df_, atualizado = _interpretar(_ler_linhas_planilha())
+        return df_, atualizado, "planilha", ""
+    except Exception as e:
+        return _dados_locais(), None, "local", f"{type(e).__name__}: {str(e)[:180]}"
+
+
+df, planilha_atualizada, origem_dados, erro_dados = carregar_dados()
 
 # ==================== CABEÇALHO ====================
+_carimbo_planilha = f" &nbsp;•&nbsp; Planilha atualizada em <b>{planilha_atualizada}</b>" if planilha_atualizada else ""
 st.markdown(f"""
 <div class="topbar">
     <img src="data:image/png;base64,{LOGO_B64}" alt="Augusto Engenharia">
     <div class="head-right">
         <p class="main-title">Controle de Medições e Saldos</p>
-        <div class="stamp">Emitido em <b>{_agora.strftime("%d/%m/%Y")}</b> às <b>{_agora.strftime("%H:%M")}</b></div>
+        <div class="stamp">Emitido em <b>{_agora.strftime("%d/%m/%Y")}</b> às <b>{_agora.strftime("%H:%M")}</b>{_carimbo_planilha}</div>
     </div>
 </div>
 <div class="stripes"></div>
 """, unsafe_allow_html=True)
 
+if origem_dados == "local":
+    st.warning(
+        "Planilha do Google não conectada: exibindo a cópia local dos dados de 13/10/2026. "
+        "Os valores abaixo podem estar desatualizados.",
+        icon="⚠️",
+    )
+    with st.expander("Detalhe técnico"):
+        st.code(erro_dados)
+
 # ==================== FILTROS ====================
 st.markdown('<div class="section-title">Filtros</div>', unsafe_allow_html=True)
-f1, f2, f3 = st.columns([1.2, 2.2, 1.2])
+f1, f2, f3, f4 = st.columns([1.2, 2.2, 1.2, 0.9])
 
 with f1:
     status_opcoes = ["Todos"] + sorted(df["Status"].unique().tolist())
@@ -227,6 +311,12 @@ with f2:
 with f3:
     st.markdown("<div style='height: 1.9rem'></div>", unsafe_allow_html=True)
     mostrar_apenas_ativos = st.checkbox("Somente com contrato", value=True)
+
+with f4:
+    st.markdown("<div style='height: 1.7rem'></div>", unsafe_allow_html=True)
+    if st.button("Atualizar dados", use_container_width=True):
+        st.cache_data.clear()
+        st.rerun()
 
 st.markdown("---")
 
