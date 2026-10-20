@@ -154,6 +154,49 @@ st.markdown("""
     input, select, textarea { font-size: 16px !important; }  /* evita zoom automático no iOS */
     div[data-testid="stPlotlyChart"], .stDataFrame { touch-action: pan-y; }
 
+    /* ---------- Aparência fixa (igual em iPhone, Android e PC) ---------- */
+    html, body, .stApp { color-scheme: light !important; }
+    [data-testid="stWidgetLabel"] p, [data-testid="stWidgetLabel"] label,
+    [data-testid="stCheckbox"] p, [data-testid="stCheckbox"] span { color: #17181A !important; }
+    [data-testid="stCaptionContainer"], [data-testid="stCaptionContainer"] p { color: #66625C !important; }
+
+    /* Campos de seleção: preto da marca, texto branco */
+    div[data-baseweb="select"] > div, div[data-baseweb="select"] input {
+        background-color: #1A1B1D !important; color: #FFFFFF !important;
+        -webkit-text-fill-color: #FFFFFF !important; border-color: #1A1B1D !important;
+    }
+    div[data-baseweb="select"] div, div[data-baseweb="select"] span { color: #FFFFFF !important; }
+    div[data-baseweb="select"] svg { fill: #FFFFFF !important; color: #FFFFFF !important; }
+    div[data-baseweb="select"] input::placeholder { color: #B9B5AF !important; -webkit-text-fill-color: #B9B5AF !important; }
+    div[data-baseweb="popover"] > div, div[data-baseweb="popover"] ul, div[data-baseweb="menu"] { background-color: #1A1B1D !important; }
+    div[data-baseweb="popover"] li, div[data-baseweb="popover"] li * { color: #FFFFFF !important; -webkit-text-fill-color: #FFFFFF !important; }
+    div[data-baseweb="popover"] li:hover, div[data-baseweb="popover"] li[aria-selected="true"] { background-color: #2A2B2E !important; }
+    label[data-baseweb="checkbox"]:has(input:checked) > span:first-child { background-color: #EF883B !important; border-color: #EF883B !important; }
+    div[data-testid="stButton"] button {
+        background-color: #0D0D0E !important; color: #FFFFFF !important; border: 1px solid #0D0D0E !important;
+        font-weight: 600; border-radius: 4px;
+    }
+    div[data-testid="stButton"] button p { color: #FFFFFF !important; }
+    div[data-testid="stButton"] button:hover { background-color: #EF883B !important; border-color: #EF883B !important; }
+
+    /* Tabela de obras */
+    .tbl-wrap { background: #0D0D0E; border-radius: 4px; overflow-x: auto; -webkit-overflow-scrolling: touch; border: 1px solid #0D0D0E; }
+    .tbl { width: 100%; min-width: 780px; border-collapse: collapse; font-size: 0.86rem; font-variant-numeric: tabular-nums; }
+    .tbl th { background: #1A1B1D; color: #B9B5AF; font-weight: 600; text-align: left; padding: 0.7rem 0.8rem; white-space: nowrap; font-size: 0.78rem; }
+    .tbl td { color: #FFFFFF; padding: 0.65rem 0.8rem; border-top: 1px solid #26272A; white-space: nowrap; background: #0D0D0E; }
+    .tbl th.num, .tbl td.num { text-align: right; }
+    .tbl th.n, .tbl td.n { width: 36px; color: #B9B5AF; text-align: right; }
+    .tbl td.obra { font-weight: 500; }
+    .tbl th.obra, .tbl td.obra { position: sticky; left: 0; z-index: 1; }
+    .tbl th.obra { background: #1A1B1D; }
+    .tbl td.pct { min-width: 150px; }
+    .tbl .bar { display: inline-block; vertical-align: middle; width: 80px; height: 8px; background: #2A2B2E; border-radius: 2px; overflow: hidden; margin-right: 0.55rem; }
+    .tbl .bar i { display: block; height: 100%; }
+    .tbl td.pct span { font-size: 0.8rem; }
+    .badge { display: inline-block; padding: 0.18rem 0.6rem; border-radius: 3px; font-weight: 600; font-size: 0.78rem; }
+    .badge.ok { background: #DDF1E8; color: #14633F; }
+    .badge.espera { background: #FDE6CF; color: #8A4A0C; }
+
     @media (max-width: 768px) {
         .topbar { margin: 0 -1rem 0 -1rem; padding: 1.1rem 1rem; }
         .stripes { margin: 0 -1rem 1.4rem -1rem; }
@@ -447,7 +490,7 @@ with col1:
             xaxis=dict(showgrid=True, gridcolor="#EEEBE6", tickprefix="R$ ", automargin=True),
             yaxis=dict(automargin=True),
         )
-        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False, "staticPlot": True})
+        st.plotly_chart(fig, use_container_width=True, theme=None, config={"displayModeBar": False, "staticPlot": True})
     else:
         st.info("Nenhuma obra com saldo no filtro atual.")
 
@@ -476,7 +519,7 @@ with col2:
             font=FONTE,
             showlegend=False,
         )
-        st.plotly_chart(fig2, use_container_width=True, config={"displayModeBar": False, "staticPlot": True})
+        st.plotly_chart(fig2, use_container_width=True, theme=None, config={"displayModeBar": False, "staticPlot": True})
         st.caption("Faixas de cor: abaixo de 30% • de 30% a 70% • acima de 70%")
     else:
         st.info("Sem dados de percentual.")
@@ -485,42 +528,43 @@ with col2:
 st.markdown("<div style='height: 1rem'></div>", unsafe_allow_html=True)
 st.markdown('<div class="section-title">Detalhamento por obra</div>', unsafe_allow_html=True)
 
-df_show = df_f.copy()
-df_show["Valor Contrato"]  = df_show["Valor Contrato"].apply(brl)
-df_show["Total Medido"]    = df_show["Total Medido"].apply(brl)
-df_show["Saldo a Receber"] = df_show["Saldo a Receber"].apply(brl)
-df_show["% Medido"]        = df_show["% Medido"] * 100  # exibido como barra de progresso
+import html as _html
 
-df_show = df_show[["Nº", "Nome da Obra", "Valor Contrato", "Total Medido", "Saldo a Receber", "% Medido", "Status"]]
 
-def cor_status(v):
-    if v == "Ativo":
-        return "background-color: #DDF1E8; color: #14633F; font-weight: 600;"
-    return "background-color: #FDE6CF; color: #8A4A0C; font-weight: 600;"
+def _cor_pct(p):
+    return "#D64545" if p < 0.30 else "#F2B134" if p < 0.70 else "#2E9E6B"
 
-estilo = df_show.style
-_aplicar = getattr(estilo, "map", None) or estilo.applymap
-estilo = _aplicar(cor_status, subset=["Status"])
-estilo = estilo.set_properties(
-    subset=["Valor Contrato", "Total Medido", "Saldo a Receber"],
-    **{"text-align": "right"}
-)
 
-altura_tabela = min(52 * (len(df_show) + 1), 500)
+def _tabela_html(d):
+    linhas = []
+    for _, r in d.iterrows():
+        p = float(r["% Medido"])
+        classe = "ok" if r["Status"] == "Ativo" else "espera"
+        linhas.append(
+            "<tr>"
+            f'<td class="n">{int(r["Nº"])}</td>'
+            f'<td class="obra">{_html.escape(str(r["Nome da Obra"]))}</td>'
+            f'<td class="num">{brl(r["Valor Contrato"])}</td>'
+            f'<td class="num">{brl(r["Total Medido"])}</td>'
+            f'<td class="num">{brl(r["Saldo a Receber"])}</td>'
+            f'<td class="pct"><div class="bar"><i style="width:{min(p*100,100):.1f}%;background:{_cor_pct(p)}"></i></div>'
+            f'<span>{p*100:.1f}%</span></td>'
+            f'<td><span class="badge {classe}">{_html.escape(str(r["Status"]))}</span></td>'
+            "</tr>"
+        )
+    return (
+        '<div class="tbl-wrap"><table class="tbl"><thead><tr>'
+        '<th class="n">Nº</th><th class="obra">Obra</th><th class="num">Valor Contrato</th>'
+        '<th class="num">Total Medido</th><th class="num">Saldo a Receber</th>'
+        '<th>% Medido</th><th>Status</th></tr></thead><tbody>'
+        + "".join(linhas) + "</tbody></table></div>"
+    )
 
-st.dataframe(
-    estilo,
-    use_container_width=True,
-    hide_index=True,
-    height=altura_tabela,
-    column_config={
-        "Nº": st.column_config.NumberColumn("Nº", width="small"),
-        "Nome da Obra": st.column_config.TextColumn("Obra", width="medium"),
-        "% Medido": st.column_config.ProgressColumn(
-            "% Medido", format="%.1f%%", min_value=0, max_value=100
-        ),
-    },
-)
+
+if df_f.empty:
+    st.info("Nenhuma obra no filtro atual.")
+else:
+    st.markdown(_tabela_html(df_f), unsafe_allow_html=True)
 
 st.markdown("---")
 st.caption("Augusto Engenharia • Controle de Medições e Saldos • Uso interno")
