@@ -5,13 +5,13 @@ import plotly.graph_objects as go
 from datetime import datetime
 
 st.set_page_config(
-    page_title="Controle de Medições e Saldos",
+    page_title="Controle de Medições | Augusto Engenharia",
     page_icon="🏗️",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# ==================== VISUAL PROFISSIONAL ====================
+# ==================== DESIGN CORPORATIVO LIMPO ====================
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
@@ -21,92 +21,88 @@ st.markdown("""
     }
 
     .stApp {
-        background-color: #F1F5F9;
+        background-color: #F8FAFC;
     }
 
     .block-container {
-        padding-top: 1.8rem;
+        padding-top: 1.6rem;
         padding-bottom: 2rem;
-        max-width: 1380px;
+        max-width: 1400px;
     }
 
+    /* Título */
     .main-title {
-        font-size: 1.7rem;
+        font-size: 1.65rem;
         font-weight: 700;
         color: #0F172A;
-        margin-bottom: 0.15rem;
+        margin-bottom: 0.1rem;
         letter-spacing: -0.4px;
     }
     .sub-title {
         color: #64748B;
-        font-size: 0.9rem;
-        margin-bottom: 1.5rem;
+        font-size: 0.88rem;
+        margin-bottom: 1.4rem;
         font-weight: 500;
     }
 
-    /* KPI Cards */
+    /* KPI Cards - brancos com borda sutil */
     .kpi-card {
-        background: #0F172A;
-        padding: 1.3rem 1.4rem;
+        background: #FFFFFF;
+        padding: 1.25rem 1.35rem;
         border-radius: 12px;
-        color: white;
-        box-shadow: 0 4px 16px rgba(15, 23, 42, 0.15);
+        box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+        border: 1px solid #E2E8F0;
         height: 100%;
-        min-height: 108px;
+        min-height: 105px;
         display: flex;
         flex-direction: column;
         justify-content: center;
-        border: 1px solid rgba(255,255,255,0.05);
     }
-    .kpi-card-green  { background: #064E3B; box-shadow: 0 4px 16px rgba(6, 78, 59, 0.2); }
-    .kpi-card-orange { background: #9A3412; box-shadow: 0 4px 16px rgba(154, 52, 18, 0.2); }
-    .kpi-card-teal   { background: #115E59; box-shadow: 0 4px 16px rgba(17, 94, 89, 0.2); }
-
     .kpi-label {
         font-size: 0.7rem;
-        opacity: 0.88;
+        color: #64748B;
         font-weight: 600;
-        letter-spacing: 0.6px;
+        letter-spacing: 0.5px;
         text-transform: uppercase;
         margin-bottom: 0.4rem;
     }
     .kpi-value {
-        font-size: 1.4rem;
+        font-size: 1.35rem;
         font-weight: 700;
+        color: #0F172A;
         margin: 0;
         letter-spacing: -0.3px;
         line-height: 1.25;
     }
     .kpi-sub {
         font-size: 0.72rem;
-        opacity: 0.78;
-        margin-top: 0.35rem;
+        color: #94A3B8;
+        margin-top: 0.3rem;
         font-weight: 500;
     }
+    .kpi-value.blue   { color: #1E40AF; }
+    .kpi-value.green  { color: #047857; }
+    .kpi-value.orange { color: #C2410C; }
+    .kpi-value.teal   { color: #0F766E; }
 
-    /* Sidebar escura e profissional */
+    /* Sidebar clara e limpa */
     section[data-testid="stSidebar"] {
-        background: #0F172A;
-        border-right: 1px solid #1E293B;
-    }
-    section[data-testid="stSidebar"] * {
-        color: #E2E8F0 !important;
+        background: #FFFFFF;
+        border-right: 1px solid #E2E8F0;
     }
     section[data-testid="stSidebar"] .stSelectbox label,
     section[data-testid="stSidebar"] .stMultiSelect label,
     section[data-testid="stSidebar"] .stCheckbox label {
         font-weight: 600;
-        color: #94A3B8 !important;
-    }
-    section[data-testid="stSidebar"] hr {
-        border-color: #334155;
+        color: #334155 !important;
+        font-size: 0.85rem;
     }
 
     h3 {
         color: #0F172A !important;
         font-weight: 650 !important;
-        font-size: 1.1rem !important;
-        margin-bottom: 0.7rem !important;
+        font-size: 1.05rem !important;
+        margin-bottom: 0.6rem !important;
     }
 
     .stDataFrame {
@@ -115,12 +111,19 @@ st.markdown("""
         overflow: hidden;
     }
 
+    /* Botão de reabrir sidebar mais visível */
+    button[kind="header"] {
+        background-color: #1E40AF !important;
+        color: white !important;
+        border-radius: 6px !important;
+    }
+
     #MainMenu, footer, header {visibility: hidden;}
 
     @media (max-width: 768px) {
-        .kpi-value { font-size: 1.2rem; }
-        .main-title { font-size: 1.35rem; }
-        .block-container { padding-left: 0.9rem; padding-right: 0.9rem; }
+        .kpi-value { font-size: 1.15rem; }
+        .main-title { font-size: 1.3rem; }
+        .block-container { padding-left: 0.85rem; padding-right: 0.85rem; }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -177,23 +180,25 @@ df = carregar_dados()
 # ==================== SIDEBAR ====================
 with st.sidebar:
     st.markdown("### Filtros")
+    st.caption("Use os filtros abaixo para analisar as obras")
     
     status_opcoes = ["Todos"] + sorted(df["Status"].unique().tolist())
-    filtro_status = st.selectbox("Status", status_opcoes)
+    filtro_status = st.selectbox("Status da Obra", status_opcoes)
     
     filtro_obra = st.multiselect(
-        "Obras",
+        "Selecionar Obras",
         options=df["Nome da Obra"].tolist(),
         default=None,
-        placeholder="Todas"
+        placeholder="Todas as obras"
     )
     
     st.markdown("---")
-    mostrar_apenas_ativos = st.checkbox("Somente com contrato", value=True)
+    mostrar_apenas_ativos = st.checkbox("Somente obras com contrato", value=True)
     
     st.markdown("---")
+    st.markdown("**Augusto Engenharia**")
     st.caption(f"Atualizado: {datetime.now().strftime('%d/%m/%Y %H:%M')}")
-    st.caption("Dados reais • Uso interno")
+    st.caption("Uso interno")
 
 # ==================== FILTROS ====================
 df_f = df.copy()
@@ -216,7 +221,7 @@ def brl(v):
 
 # ==================== CABEÇALHO ====================
 st.markdown('<p class="main-title">Controle de Medições e Saldos</p>', unsafe_allow_html=True)
-st.markdown(f'<p class="sub-title">{qtd_obras} obras • {qtd_ativas} ativas</p>', unsafe_allow_html=True)
+st.markdown(f'<p class="sub-title">{qtd_obras} obras • {qtd_ativas} ativas • Augusto Engenharia</p>', unsafe_allow_html=True)
 
 # ==================== CARDS ====================
 c1, c2, c3, c4 = st.columns(4)
@@ -225,34 +230,34 @@ with c1:
     st.markdown(f"""
     <div class="kpi-card">
         <div class="kpi-label">Saldo a Receber</div>
-        <p class="kpi-value">{brl(total_saldo)}</p>
+        <p class="kpi-value blue">{brl(total_saldo)}</p>
         <div class="kpi-sub">Valor em aberto</div>
     </div>
     """, unsafe_allow_html=True)
 
 with c2:
     st.markdown(f"""
-    <div class="kpi-card kpi-card-green">
+    <div class="kpi-card">
         <div class="kpi-label">Total Medido</div>
-        <p class="kpi-value">{brl(total_medido)}</p>
+        <p class="kpi-value green">{brl(total_medido)}</p>
         <div class="kpi-sub">{perc_geral*100:.1f}% dos contratos</div>
     </div>
     """, unsafe_allow_html=True)
 
 with c3:
     st.markdown(f"""
-    <div class="kpi-card kpi-card-orange">
+    <div class="kpi-card">
         <div class="kpi-label">Total Contratos</div>
-        <p class="kpi-value">{brl(total_contrato)}</p>
+        <p class="kpi-value orange">{brl(total_contrato)}</p>
         <div class="kpi-sub">{qtd_obras} obras</div>
     </div>
     """, unsafe_allow_html=True)
 
 with c4:
     st.markdown(f"""
-    <div class="kpi-card kpi-card-teal">
+    <div class="kpi-card">
         <div class="kpi-label">% Médio Medido</div>
-        <p class="kpi-value">{perc_geral*100:.1f}%</p>
+        <p class="kpi-value teal">{perc_geral*100:.1f}%</p>
         <div class="kpi-sub">Progresso geral</div>
     </div>
     """, unsafe_allow_html=True)
@@ -264,7 +269,7 @@ df_saldo = df_f[df_f["Saldo a Receber"] > 0].sort_values("Saldo a Receber", asce
 df_perc  = df_f[df_f["Valor Contrato"] > 0].sort_values("% Medido", ascending=True)
 
 n_barras = max(len(df_saldo), len(df_perc), 1)
-altura_grafico = max(280, min(38 * n_barras + 80, 620))
+altura_grafico = max(280, min(38 * n_barras + 80, 600))
 
 col1, col2 = st.columns(2)
 
@@ -278,7 +283,7 @@ with col1:
             orientation="h",
             text="Saldo a Receber",
             color="Saldo a Receber",
-            color_continuous_scale=["#94A3B8", "#0F172A"],
+            color_continuous_scale=["#BFDBFE", "#1E40AF"],
         )
         fig.update_traces(
             texttemplate="R$ %{x:,.0f}",
@@ -296,7 +301,7 @@ with col1:
             plot_bgcolor="rgba(0,0,0,0)",
             paper_bgcolor="rgba(0,0,0,0)",
             font=dict(family="Inter", size=12, color="#334155"),
-            xaxis=dict(showgrid=True, gridcolor="#E2E8F0", tickprefix="R$ ", automargin=True),
+            xaxis=dict(showgrid=True, gridcolor="#F1F5F9", tickprefix="R$ ", automargin=True),
             yaxis=dict(automargin=True),
         )
         st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
@@ -321,7 +326,7 @@ with col2:
         fig2.update_layout(
             height=altura_grafico,
             margin=dict(l=8, r=55, t=8, b=8),
-            xaxis=dict(title="", range=[0, 120], ticksuffix="%", showgrid=True, gridcolor="#E2E8F0", automargin=True),
+            xaxis=dict(title="", range=[0, 120], ticksuffix="%", showgrid=True, gridcolor="#F1F5F9", automargin=True),
             yaxis=dict(title="", automargin=True),
             plot_bgcolor="rgba(0,0,0,0)",
             paper_bgcolor="rgba(0,0,0,0)",
@@ -351,4 +356,4 @@ st.dataframe(
 )
 
 st.markdown("---")
-st.caption("Dashboard de Controle de Medições e Saldos • Dados reais • Uso interno")
+st.caption("Augusto Engenharia • Controle de Medições e Saldos • Uso interno")
