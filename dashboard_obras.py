@@ -120,6 +120,24 @@ st.markdown("""
 
     #MainMenu, footer, header {visibility: hidden;}
 
+    /* ===== SETA DO FILTRO BEM VISÍVEL ===== */
+    [data-testid="collapsedControl"] {
+        background-color: #1E40AF !important;
+        color: white !important;
+        border-radius: 0 10px 10px 0 !important;
+        padding: 12px 10px !important;
+        box-shadow: 2px 2px 10px rgba(30, 64, 175, 0.35) !important;
+        border: none !important;
+    }
+    [data-testid="collapsedControl"]:hover {
+        background-color: #1D4ED8 !important;
+    }
+    [data-testid="collapsedControl"] svg {
+        fill: white !important;
+        width: 20px !important;
+        height: 20px !important;
+    }
+
     @media (max-width: 768px) {
         .kpi-value { font-size: 1.15rem; }
         .main-title { font-size: 1.3rem; }
