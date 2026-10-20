@@ -89,11 +89,14 @@ st.markdown("""
         display: flex; flex-direction: column; justify-content: center;
         border-top: 4px solid var(--coal);
     }
-    .kpi-card.destaque { background: var(--black); border-color: var(--black); border-top: 4px solid var(--orange); }
-    .kpi-card.destaque .kpi-label, .kpi-card.destaque .kpi-sub { color: #B9B5AF; }
-    .kpi-card.destaque .kpi-value { color: var(--orange); }
-    .kpi-card.green { border-top-color: var(--ok); }
-    .kpi-card.amber { border-top-color: var(--orange); }
+    /* Cartões coloridos (texto branco) */
+    .kpi-card.verde   { background: linear-gradient(135deg, #14633F, #2E9E6B); border-color: #14633F; border-top-color: #7FE0B0; }
+    .kpi-card.laranja { background: linear-gradient(135deg, #C25F14, #EF883B); border-color: #C25F14; border-top-color: #FFD3A8; }
+    .kpi-card.azul    { background: linear-gradient(135deg, #17485E, #2C7DA0); border-color: #17485E; border-top-color: #9FD3EA; }
+    .kpi-card.grafite { background: linear-gradient(135deg, #0D0D0E, #2E3033); border-color: #0D0D0E; border-top-color: #EF883B; }
+    .kpi-card.verde .kpi-label, .kpi-card.laranja .kpi-label, .kpi-card.azul .kpi-label, .kpi-card.grafite .kpi-label,
+    .kpi-card.verde .kpi-sub, .kpi-card.laranja .kpi-sub, .kpi-card.azul .kpi-sub, .kpi-card.grafite .kpi-sub { color: rgba(255,255,255,0.86); }
+    .kpi-card.verde .kpi-value, .kpi-card.laranja .kpi-value, .kpi-card.azul .kpi-value, .kpi-card.grafite .kpi-value { color: #FFFFFF; }
 
     .kpi-label { font-size: 0.82rem; color: var(--ink-soft); font-weight: 500; margin-bottom: 0.35rem; }
     .kpi-value {
@@ -404,7 +407,7 @@ c1, c2, c3, c4 = st.columns(4)
 
 with c1:
     st.markdown(f"""
-    <div class="kpi-card destaque">
+    <div class="kpi-card verde">
         <div class="kpi-label">Saldo a receber</div>
         <p class="kpi-value">{brl(total_saldo)}</p>
         <div class="kpi-sub">Valor em aberto</div>
@@ -413,7 +416,7 @@ with c1:
 
 with c2:
     st.markdown(f"""
-    <div class="kpi-card green">
+    <div class="kpi-card laranja">
         <div class="kpi-label">Total medido</div>
         <p class="kpi-value">{brl(total_medido)}</p>
         <div class="kpi-sub">{perc_geral*100:.1f}% dos contratos</div>
@@ -422,7 +425,7 @@ with c2:
 
 with c3:
     st.markdown(f"""
-    <div class="kpi-card amber">
+    <div class="kpi-card azul">
         <div class="kpi-label">Total de contratos</div>
         <p class="kpi-value">{brl(total_contrato)}</p>
         <div class="kpi-sub">{qtd_obras} obras</div>
@@ -431,7 +434,7 @@ with c3:
 
 with c4:
     st.markdown(f"""
-    <div class="kpi-card">
+    <div class="kpi-card grafite">
         <div class="kpi-label">% médio medido</div>
         <p class="kpi-value">{perc_geral*100:.1f}%</p>
         <div class="kpi-sub">Progresso geral</div>
