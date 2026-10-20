@@ -104,18 +104,18 @@ st.markdown("""
         font-size: 0.85rem;
     }
 
-    /* SETA DO FILTRO BEM VISÍVEL */
+    /* SETA DO FILTRO PRETA E BEM VISÍVEL */
     [data-testid="collapsedControl"] {
-        background-color: #2563EB !important;
+        background-color: #0F172A !important;
         color: white !important;
         border-radius: 0 12px 12px 0 !important;
         padding: 14px 12px !important;
-        box-shadow: 3px 3px 12px rgba(37, 99, 235, 0.4) !important;
+        box-shadow: 3px 3px 12px rgba(0, 0, 0, 0.35) !important;
         border: none !important;
         z-index: 999 !important;
     }
     [data-testid="collapsedControl"]:hover {
-        background-color: #1D4ED8 !important;
+        background-color: #1E293B !important;
     }
     [data-testid="collapsedControl"] svg {
         fill: white !important;
@@ -126,7 +126,7 @@ st.markdown("""
     /* Força a seta a aparecer também em outros seletores */
     section[data-testid="stSidebar"] + div button,
     .stApp > header button {
-        background-color: #2563EB !important;
+        background-color: #0F172A !important;
         color: white !important;
     }
 
