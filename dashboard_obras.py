@@ -8,7 +8,7 @@ st.set_page_config(
     page_title="Controle de Medições | Augusto Engenharia",
     page_icon="🏗️",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"  # sidebar fechada por padrão (não usaremos mais)
 )
 
 # ==================== DESIGN ====================
@@ -23,7 +23,7 @@ st.markdown("""
     .stApp { background-color: #F8FAFC; }
 
     .block-container {
-        padding-top: 1.6rem;
+        padding-top: 1.4rem;
         padding-bottom: 2rem;
         max-width: 1400px;
     }
@@ -38,7 +38,7 @@ st.markdown("""
     .sub-title {
         color: #64748B;
         font-size: 0.88rem;
-        margin-bottom: 1.4rem;
+        margin-bottom: 1.2rem;
         font-weight: 500;
     }
 
@@ -91,43 +91,14 @@ st.markdown("""
         margin-bottom: 0.6rem;
     }
 
-    /* Sidebar */
-    section[data-testid="stSidebar"] {
-        background: #FFFFFF;
-        border-right: 1px solid #E2E8F0;
-    }
-    section[data-testid="stSidebar"] .stSelectbox label,
-    section[data-testid="stSidebar"] .stMultiSelect label,
-    section[data-testid="stSidebar"] .stCheckbox label {
-        font-weight: 600;
-        color: #334155 !important;
-        font-size: 0.85rem;
-    }
-
-    /* SETA DO FILTRO PRETA E BEM VISÍVEL */
-    [data-testid="collapsedControl"] {
-        background-color: #0F172A !important;
-        color: white !important;
-        border-radius: 0 12px 12px 0 !important;
-        padding: 14px 12px !important;
-        box-shadow: 3px 3px 12px rgba(0, 0, 0, 0.35) !important;
-        border: none !important;
-        z-index: 999 !important;
-    }
-    [data-testid="collapsedControl"]:hover {
-        background-color: #1E293B !important;
-    }
-    [data-testid="collapsedControl"] svg {
-        fill: white !important;
-        width: 22px !important;
-        height: 22px !important;
-    }
-
-    /* Força a seta a aparecer também em outros seletores */
-    section[data-testid="stSidebar"] + div button,
-    .stApp > header button {
-        background-color: #0F172A !important;
-        color: white !important;
+    /* Caixa de filtros no topo */
+    .filter-box {
+        background: white;
+        border: 1px solid #E2E8F0;
+        border-radius: 12px;
+        padding: 1rem 1.2rem;
+        margin-bottom: 1.2rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
     }
 
     .stDataFrame {
@@ -195,30 +166,33 @@ def carregar_dados():
 
 df = carregar_dados()
 
-# ==================== SIDEBAR ====================
-with st.sidebar:
-    st.markdown("### Filtros")
-    st.caption("Use os filtros abaixo para analisar as obras")
-    
+# ==================== CABEÇALHO ====================
+st.markdown('<p class="main-title">Controle de Medições e Saldos</p>', unsafe_allow_html=True)
+st.markdown(f'<p class="sub-title">Augusto Engenharia • Atualizado: {datetime.now().strftime("%d/%m/%Y %H:%M")}</p>', unsafe_allow_html=True)
+
+# ==================== FILTROS NO TOPO (sempre visíveis) ====================
+st.markdown("##### Filtros")
+f1, f2, f3 = st.columns([1.2, 2.2, 1.2])
+
+with f1:
     status_opcoes = ["Todos"] + sorted(df["Status"].unique().tolist())
     filtro_status = st.selectbox("Status da Obra", status_opcoes)
-    
+
+with f2:
     filtro_obra = st.multiselect(
         "Selecionar Obras",
         options=df["Nome da Obra"].tolist(),
         default=None,
         placeholder="Todas as obras"
     )
-    
-    st.markdown("---")
-    mostrar_apenas_ativos = st.checkbox("Somente obras com contrato", value=True)
-    
-    st.markdown("---")
-    st.markdown("**Augusto Engenharia**")
-    st.caption(f"Atualizado: {datetime.now().strftime('%d/%m/%Y %H:%M')}")
-    st.caption("Uso interno")
 
-# ==================== FILTROS ====================
+with f3:
+    st.markdown("<br>", unsafe_allow_html=True)
+    mostrar_apenas_ativos = st.checkbox("Somente com contrato", value=True)
+
+st.markdown("---")
+
+# ==================== APLICAR FILTROS ====================
 df_f = df.copy()
 if filtro_status != "Todos":
     df_f = df_f[df_f["Status"] == filtro_status]
@@ -236,10 +210,6 @@ qtd_ativas     = len(df_f[df_f["Status"] == "Ativo"])
 
 def brl(v):
     return f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-
-# ==================== CABEÇALHO ====================
-st.markdown('<p class="main-title">Controle de Medições e Saldos</p>', unsafe_allow_html=True)
-st.markdown(f'<p class="sub-title">{qtd_obras} obras • {qtd_ativas} ativas • Augusto Engenharia</p>', unsafe_allow_html=True)
 
 # ==================== CARDS COLORIDOS ====================
 c1, c2, c3, c4 = st.columns(4)
