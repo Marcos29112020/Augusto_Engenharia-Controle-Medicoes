@@ -148,6 +148,7 @@ st.markdown("""
 
     /* ---------- Celulares e iPhone ---------- */
     html { -webkit-text-size-adjust: 100%; }
+    iframe[height="0"] { position: absolute; width: 0; height: 0; border: 0; }
     .block-container {
         padding-left: max(1rem, env(safe-area-inset-left)) ;
         padding-right: max(1rem, env(safe-area-inset-right));
@@ -571,3 +572,26 @@ else:
 
 st.markdown("---")
 st.caption("Augusto Engenharia • Controle de Medições e Saldos • Uso interno")
+
+# ==================== LAYOUT DE COMPUTADOR TAMBÉM NO CELULAR ====================
+# Força a página a ser montada com largura de computador (1000 px) e depois reduzida
+# para caber na tela do aparelho. Assim iPhone e Android mostram os cartões lado a lado
+# e os dois gráficos lado a lado, igual à versão de computador.
+import streamlit.components.v1 as components
+
+components.html("""
+<script>
+(function () {
+  function aplicar() {
+    try {
+      var d = window.parent.document;
+      var m = d.querySelector('meta[name="viewport"]');
+      if (!m) { m = d.createElement('meta'); m.setAttribute('name', 'viewport'); d.head.appendChild(m); }
+      m.setAttribute('content', 'width=1000, user-scalable=yes');
+    } catch (e) {}
+  }
+  aplicar();
+  var n = 0, t = setInterval(function () { aplicar(); if (++n > 12) clearInterval(t); }, 500);
+})();
+</script>
+""", height=0)
