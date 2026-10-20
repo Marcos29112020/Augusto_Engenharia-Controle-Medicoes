@@ -11,7 +11,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# ==================== DESIGN CORPORATIVO LIMPO ====================
+# ==================== DESIGN ====================
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
@@ -20,9 +20,7 @@ st.markdown("""
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     }
 
-    .stApp {
-        background-color: #F8FAFC;
-    }
+    .stApp { background-color: #F8FAFC; }
 
     .block-container {
         padding-top: 1.6rem;
@@ -30,7 +28,6 @@ st.markdown("""
         max-width: 1400px;
     }
 
-    /* Título */
     .main-title {
         font-size: 1.65rem;
         font-weight: 700;
@@ -45,22 +42,26 @@ st.markdown("""
         font-weight: 500;
     }
 
-    /* KPI Cards - brancos com borda sutil */
+    /* KPI Cards COLORIDOS */
     .kpi-card {
-        background: #FFFFFF;
         padding: 1.25rem 1.35rem;
         border-radius: 12px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
-        border: 1px solid #E2E8F0;
+        color: white;
         height: 100%;
         min-height: 105px;
         display: flex;
         flex-direction: column;
         justify-content: center;
+        box-shadow: 0 4px 14px rgba(0,0,0,0.12);
     }
+    .kpi-card.blue   { background: linear-gradient(135deg, #1E3A8A, #2563EB); }
+    .kpi-card.green  { background: linear-gradient(135deg, #065F46, #059669); }
+    .kpi-card.orange { background: linear-gradient(135deg, #9A3412, #EA580C); }
+    .kpi-card.teal   { background: linear-gradient(135deg, #115E59, #0D9488); }
+
     .kpi-label {
         font-size: 0.7rem;
-        color: #64748B;
+        opacity: 0.9;
         font-weight: 600;
         letter-spacing: 0.5px;
         text-transform: uppercase;
@@ -69,23 +70,28 @@ st.markdown("""
     .kpi-value {
         font-size: 1.35rem;
         font-weight: 700;
-        color: #0F172A;
         margin: 0;
         letter-spacing: -0.3px;
         line-height: 1.25;
+        color: white;
     }
     .kpi-sub {
         font-size: 0.72rem;
-        color: #94A3B8;
+        opacity: 0.85;
         margin-top: 0.3rem;
         font-weight: 500;
     }
-    .kpi-value.blue   { color: #1E40AF; }
-    .kpi-value.green  { color: #047857; }
-    .kpi-value.orange { color: #C2410C; }
-    .kpi-value.teal   { color: #0F766E; }
 
-    /* Sidebar clara e limpa */
+    /* Títulos dos gráficos centralizados */
+    .chart-title {
+        text-align: center;
+        font-size: 1.05rem;
+        font-weight: 650;
+        color: #0F172A;
+        margin-bottom: 0.6rem;
+    }
+
+    /* Sidebar */
     section[data-testid="stSidebar"] {
         background: #FFFFFF;
         border-right: 1px solid #E2E8F0;
@@ -98,11 +104,30 @@ st.markdown("""
         font-size: 0.85rem;
     }
 
-    h3 {
-        color: #0F172A !important;
-        font-weight: 650 !important;
-        font-size: 1.05rem !important;
-        margin-bottom: 0.6rem !important;
+    /* SETA DO FILTRO BEM VISÍVEL */
+    [data-testid="collapsedControl"] {
+        background-color: #2563EB !important;
+        color: white !important;
+        border-radius: 0 12px 12px 0 !important;
+        padding: 14px 12px !important;
+        box-shadow: 3px 3px 12px rgba(37, 99, 235, 0.4) !important;
+        border: none !important;
+        z-index: 999 !important;
+    }
+    [data-testid="collapsedControl"]:hover {
+        background-color: #1D4ED8 !important;
+    }
+    [data-testid="collapsedControl"] svg {
+        fill: white !important;
+        width: 22px !important;
+        height: 22px !important;
+    }
+
+    /* Força a seta a aparecer também em outros seletores */
+    section[data-testid="stSidebar"] + div button,
+    .stApp > header button {
+        background-color: #2563EB !important;
+        color: white !important;
     }
 
     .stDataFrame {
@@ -111,32 +136,7 @@ st.markdown("""
         overflow: hidden;
     }
 
-    /* Botão de reabrir sidebar mais visível */
-    button[kind="header"] {
-        background-color: #1E40AF !important;
-        color: white !important;
-        border-radius: 6px !important;
-    }
-
     #MainMenu, footer, header {visibility: hidden;}
-
-    /* ===== SETA DO FILTRO BEM VISÍVEL ===== */
-    [data-testid="collapsedControl"] {
-        background-color: #1E40AF !important;
-        color: white !important;
-        border-radius: 0 10px 10px 0 !important;
-        padding: 12px 10px !important;
-        box-shadow: 2px 2px 10px rgba(30, 64, 175, 0.35) !important;
-        border: none !important;
-    }
-    [data-testid="collapsedControl"]:hover {
-        background-color: #1D4ED8 !important;
-    }
-    [data-testid="collapsedControl"] svg {
-        fill: white !important;
-        width: 20px !important;
-        height: 20px !important;
-    }
 
     @media (max-width: 768px) {
         .kpi-value { font-size: 1.15rem; }
@@ -241,46 +241,46 @@ def brl(v):
 st.markdown('<p class="main-title">Controle de Medições e Saldos</p>', unsafe_allow_html=True)
 st.markdown(f'<p class="sub-title">{qtd_obras} obras • {qtd_ativas} ativas • Augusto Engenharia</p>', unsafe_allow_html=True)
 
-# ==================== CARDS ====================
+# ==================== CARDS COLORIDOS ====================
 c1, c2, c3, c4 = st.columns(4)
 
 with c1:
     st.markdown(f"""
-    <div class="kpi-card">
+    <div class="kpi-card blue">
         <div class="kpi-label">Saldo a Receber</div>
-        <p class="kpi-value blue">{brl(total_saldo)}</p>
+        <p class="kpi-value">{brl(total_saldo)}</p>
         <div class="kpi-sub">Valor em aberto</div>
     </div>
     """, unsafe_allow_html=True)
 
 with c2:
     st.markdown(f"""
-    <div class="kpi-card">
+    <div class="kpi-card green">
         <div class="kpi-label">Total Medido</div>
-        <p class="kpi-value green">{brl(total_medido)}</p>
+        <p class="kpi-value">{brl(total_medido)}</p>
         <div class="kpi-sub">{perc_geral*100:.1f}% dos contratos</div>
     </div>
     """, unsafe_allow_html=True)
 
 with c3:
     st.markdown(f"""
-    <div class="kpi-card">
+    <div class="kpi-card orange">
         <div class="kpi-label">Total Contratos</div>
-        <p class="kpi-value orange">{brl(total_contrato)}</p>
+        <p class="kpi-value">{brl(total_contrato)}</p>
         <div class="kpi-sub">{qtd_obras} obras</div>
     </div>
     """, unsafe_allow_html=True)
 
 with c4:
     st.markdown(f"""
-    <div class="kpi-card">
+    <div class="kpi-card teal">
         <div class="kpi-label">% Médio Medido</div>
-        <p class="kpi-value teal">{perc_geral*100:.1f}%</p>
+        <p class="kpi-value">{perc_geral*100:.1f}%</p>
         <div class="kpi-sub">Progresso geral</div>
     </div>
     """, unsafe_allow_html=True)
 
-st.markdown("<div style='height: 1.1rem'></div>", unsafe_allow_html=True)
+st.markdown("<div style='height: 1.2rem'></div>", unsafe_allow_html=True)
 
 # ==================== GRÁFICOS ====================
 df_saldo = df_f[df_f["Saldo a Receber"] > 0].sort_values("Saldo a Receber", ascending=True)
@@ -292,7 +292,7 @@ altura_grafico = max(280, min(38 * n_barras + 80, 600))
 col1, col2 = st.columns(2)
 
 with col1:
-    st.subheader("Saldo a Receber por Obra")
+    st.markdown('<p class="chart-title">Saldo a Receber por Obra</p>', unsafe_allow_html=True)
     if not df_saldo.empty:
         fig = px.bar(
             df_saldo,
@@ -327,7 +327,7 @@ with col1:
         st.info("Nenhuma obra com saldo no filtro atual.")
 
 with col2:
-    st.subheader("% Medido por Obra")
+    st.markdown('<p class="chart-title">% Medido por Obra</p>', unsafe_allow_html=True)
     if not df_perc.empty:
         cores = ["#EF4444" if x < 0.30 else "#F59E0B" if x < 0.70 else "#10B981" for x in df_perc["% Medido"]]
         fig2 = go.Figure()
