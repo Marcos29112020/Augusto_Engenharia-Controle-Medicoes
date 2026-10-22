@@ -200,6 +200,7 @@ st.markdown("""
     .badge { display: inline-block; padding: 0.18rem 0.6rem; border-radius: 3px; font-weight: 600; font-size: 0.78rem; }
     .badge.ok { background: #DDF1E8; color: #14633F; }
     .badge.espera { background: #FDE6CF; color: #8A4A0C; }
+    .badge.primeira { background: #DCEBF5; color: #17485E; }
 
     @media (max-width: 768px) {
         .topbar { margin: 0 -1rem 0 -1rem; padding: 1.1rem 1rem; }
@@ -316,9 +317,9 @@ def _dados_locais():
         "Status": [
             "Ativo", "Ativo", "Ativo", "Ativo", "Ativo", "Ativo",
             "Aguardando contrato", "Aguardando contrato",
-            "Ativo", "Ativo",
+            "Ativo", "Aguardando 1ª medição",
             "Ativo", "Aguardando contrato", "Ativo",
-            "Ativo", "Aguardando contrato"
+            "Aguardando 1ª medição", "Aguardando contrato"
         ]
     }
     return pd.DataFrame(data)
@@ -543,7 +544,7 @@ def _tabela_html(d):
     linhas = []
     for _, r in d.iterrows():
         p = float(r["% Medido"])
-        classe = "ok" if r["Status"] == "Ativo" else "espera"
+        classe = "ok" if r["Status"] == "Ativo" else "primeira" if "medição" in str(r["Status"]).lower() else "espera"
         linhas.append(
             "<tr>"
             f'<td class="n">{int(r["Nº"])}</td>'
