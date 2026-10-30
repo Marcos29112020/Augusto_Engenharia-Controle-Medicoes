@@ -1,32 +1,36 @@
 # Augusto Engenharia – Controle de Medições
 
-Painel em Streamlit que lê a planilha **"Controle de Medições e Saldos - Obras"** (Google Sheets).
+Painel em Streamlit que mostra a aba **Dados_Dashboard** da planilha
+**"Controle de Medições e Saldos - Obras"** (Google Sheets).
 
-## Abas da planilha usadas
+## Como funciona
 
-| Aba | Para que serve no painel | Obrigatória? |
-|---|---|---|
-| `Dados_Dashboard` | Números por obra: contrato, medido, saldo, %, status | Sim |
-| `Obras` | Endereço, observações e data da última medição | Não |
-| `Medições` | Histórico de lançamentos e gráfico mensal (aba "Medições lançadas") | Não |
+```
+Aba Medições  ──(soma por obra)──┐
+                                 ├──► Aba Dados_Dashboard ──► Dashboard (site)
+Aba Obras  ──(valor do contrato)─┘
+```
 
-## Como o painel lê os dados (nesta ordem)
+- **Medições**: onde se lança cada medição (data, nº da obra, valor).
+- **Obras**: cadastro das obras e valor do contrato.
+- **Dados_Dashboard**: 100% fórmulas. Não editar. É a única aba que o site lê.
 
-1. **Conta de serviço do Google** (se configurada em *Settings → Secrets*, ver `secrets.toml.example`): lê as 3 abas e a planilha pode ficar privada.
-2. **Publicar na Web (CSV)**: hoje só a aba `Dados_Dashboard` está publicada. Para as abas `Obras` e `Medições` aparecerem por esse caminho, publique o **Documento inteiro** em *Arquivo → Compartilhar → Publicar na Web*.
-3. **Última leitura válida**, se o Google falhar momentaneamente.
-4. **Cópia local** (22/10/2026), com aviso na tela.
+O site consulta a planilha a cada 1 minuto. O Google pode levar até ~5 minutos para
+liberar uma alteração no link publicado. Para forçar, clique em **Atualizar dados**.
 
-## Recursos
+## Fontes de dados (em ordem)
 
-- Indicadores, progresso geral, saldo e % medido por obra
-- Tabela com endereço, data da última medição e há quantos dias foi feita
-- **Pontos de atenção**: conferência automática da planilha (saldo que não bate, medido acima do contrato,
-  status divergente entre abas, obra ativa sem medição há mais de 30 dias, carimbo "Atualizado em" desatualizado)
-- Aba **Medições lançadas** com o histórico e o valor medido por mês
-- Botão **Baixar Excel** com as obras filtradas e as medições
+1. Link "Publicar na Web" (CSV) da aba Dados_Dashboard.
+2. Conta de serviço do Google (opcional, ver `secrets.toml.example`).
+3. Última leitura válida, se o Google falhar no momento.
+4. Cópia local (22/10/2026), com aviso na tela.
 
 ## Lançando medições
 
-Na aba `Medições`, use as linhas amarelas: **uma linha por medição, com o valor daquela medição** (não o acumulado).
-As linhas laranja são o saldo inicial acumulado até outubro/2026 e não devem ser alteradas.
+Na aba `Medições`, use a primeira linha amarela livre: **uma linha por medição, com o valor daquela medição**
+(não o acumulado). Preencha Data, Nº da Obra e Valor. O nome da obra aparece sozinho.
+
+## Nova obra
+
+1. Aba `Obras`: nova linha com Nº, nome e valor do contrato (copie as fórmulas da linha de cima).
+2. Aba `Dados_Dashboard`: insira uma linha **acima da linha TOTAL**, com o Nº e o nome, e copie as fórmulas da linha de cima.

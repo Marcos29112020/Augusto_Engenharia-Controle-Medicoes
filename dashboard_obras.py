@@ -217,7 +217,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ==================== ESTILOS EXTRAS (versão 2) ====================
+# ==================== ESTILOS EXTRAS ====================
 st.markdown("""
 <style>
     .stamp-line { color: #A9A6A1; font-size: 0.8rem; margin-top: 0.3rem; }
@@ -227,12 +227,6 @@ st.markdown("""
     /* Script do layout de celular: iframe invisível */
     div[data-testid="stElementContainer"]:has(iframe[data-testid="stIFrame"]) { position: absolute; height: 0; overflow: hidden; margin: 0; }
 
-    /* Abas */
-    div[data-baseweb="tab-list"] { gap: 0.4rem; border-bottom: 2px solid var(--line); }
-    button[data-baseweb="tab"] { font-family: 'Montserrat', sans-serif; font-weight: 700; color: var(--ink-soft); padding: 0.5rem 0.9rem; }
-    button[data-baseweb="tab"][aria-selected="true"] { color: var(--ink); }
-    div[data-baseweb="tab-highlight"] { background-color: var(--orange) !important; height: 3px; }
-
     /* Botão de download igual aos demais */
     div[data-testid="stDownloadButton"] button {
         background-color: #0D0D0E !important; color: #FFFFFF !important; border: 1px solid #0D0D0E !important;
@@ -241,35 +235,21 @@ st.markdown("""
     div[data-testid="stDownloadButton"] button p { color: #FFFFFF !important; }
     div[data-testid="stDownloadButton"] button:hover { background-color: #EF883B !important; border-color: #EF883B !important; }
 
-    /* Tabela: endereço e última medição */
-    .tbl td.obra small { display: block; color: #8E8A84; font-size: 0.72rem; font-weight: 400; margin-top: 0.1rem; }
-    .tbl td.data small { display: block; color: #8E8A84; font-size: 0.72rem; }
-    .tbl td.data small.alerta { color: #F2B134; }
-
-    /* Pontos de atenção */
+    .tbl tr.total td { background: #1A1B1D; border-top: 2px solid #EF883B; }
     .aviso { background: #FFFFFF; border: 1px solid var(--line); border-left: 5px solid var(--warn);
              border-radius: 4px; padding: 0.55rem 0.9rem; margin-bottom: 0.45rem; font-size: 0.86rem; }
-    .aviso b { font-weight: 600; }
-
-    /* Mini-indicadores da aba Medições */
-    .mini { background: #FFFFFF; border: 1px solid var(--line); border-top: 4px solid var(--orange);
-            border-radius: 4px; padding: 0.8rem 1.1rem; }
-    .mini .l { font-size: 0.8rem; color: var(--ink-soft); }
-    .mini .v { font-family: 'Montserrat', sans-serif; font-size: 1.25rem; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
 </style>
 """, unsafe_allow_html=True)
 
 
 # ==================== DADOS ====================
-# A planilha "Controle de Medições e Saldos - Obras" tem 3 abas:
-#   • Dados_Dashboard  → números consolidados por obra (obrigatória)
-#   • Obras            → endereço, última medição e observações (opcional)
-#   • Medições         → cada lançamento de medição (opcional, alimenta o histórico)
+# O painel lê SOMENTE a aba "Dados_Dashboard" da planilha "Controle de Medições e Saldos - Obras".
+# Essa aba é 100% calculada por fórmulas a partir das abas Obras (valor do contrato) e
+# Medições (soma das medições de cada obra). Basta lançar a medição na aba Medições.
 #
 # Ordem de leitura:
-#   1) Conta de serviço do Google (se configurada em Settings > Secrets) → lê as 3 abas, planilha pode ser privada.
-#   2) Links "Publicar na Web" em CSV → a aba Dados_Dashboard já está publicada; Obras e Medições
-#      só aparecem se o DOCUMENTO INTEIRO estiver publicado.
+#   1) Link "Publicar na Web" (CSV) da aba Dados_Dashboard.
+#   2) Conta de serviço do Google, se configurada em Settings > Secrets (opcional).
 #   3) Última leitura que deu certo (enquanto o app estiver no ar).
 #   4) Cópia local abaixo (22/10/2026), com aviso na tela.
 import re
@@ -279,15 +259,11 @@ import urllib.request
 from zoneinfo import ZoneInfo
 
 SHEET_ID = "1CzVvrskLv_L2HTiki9qfgrc25lZKSm1bDSYdpWlLcHo"
-PUB_ID = "2PACX-1vQg_mkkcQ19IkC6BP2tO7r8WIfexhwfjrwRHWAUz4EsbYxoSMJdcAX_hDUrANLp0zAQ0ufcK2gYjOTB"
-PUB_URL = "https://docs.google.com/spreadsheets/d/e/" + PUB_ID + "/pub?gid={gid}&single=true&output=csv"
-
-ABA_DADOS, ABA_OBRAS, ABA_MED = "Dados_Dashboard", "Obras", "Medições"
-GIDS = {ABA_DADOS: 1305721148, ABA_OBRAS: 561948832, ABA_MED: 381229762}
-
+CSV_URL = ("https://docs.google.com/spreadsheets/d/e/2PACX-1vQg_mkkcQ19IkC6BP2tO7r8WIfexhwfjrwRHWAUz4EsbYxoSMJdcAX_hDUrANLp0zAQ0ufcK2gYjOTB"
+           "/pub?gid=1305721148&single=true&output=csv")
+ABA_DADOS = "Dados_Dashboard"
 COLUNAS = ["Nº", "Nome da Obra", "Valor Contrato", "Total Medido", "Saldo a Receber", "% Medido", "Status"]
-HOJE = datetime.now(ZoneInfo("America/Sao_Paulo")).date()
-DIAS_ALERTA = 30  # obra ativa sem medição há mais que isso entra em "Pontos de atenção"
+FUSO = ZoneInfo("America/Sao_Paulo")
 
 
 def _num(v):
@@ -304,64 +280,35 @@ def _num(v):
     return x / 100 if pct else x
 
 
-def _data(v):
-    """'13/10/2026' → Timestamp. Datas vazias ou '30/12/1899' (célula zerada) viram NaT."""
-    d = pd.to_datetime(str(v).strip(), format="%d/%m/%Y", errors="coerce")
-    if pd.isna(d) or d.year < 2000:
-        return pd.NaT
-    return d
+def _ler_csv_publicado():
+    req = urllib.request.Request(CSV_URL, headers={"User-Agent": "Mozilla/5.0"})
+    with urllib.request.urlopen(req, timeout=20) as resp:
+        texto = resp.read().decode("utf-8-sig")
+    if texto.lstrip().lower().startswith(("<!doctype", "<html")):
+        raise ValueError("a aba não está publicada na web")
+    return list(csv.reader(io.StringIO(texto)))
 
 
-def _linha_cabecalho(linhas, primeira_coluna):
-    return next(i for i, r in enumerate(linhas) if r and str(r[0]).strip() == primeira_coluna)
-
-
-def _cel(r, i):
-    return r[i] if i is not None and i < len(r) else ""
-
-
-# ---------- leitura ----------
-def _segredos():
-    try:
-        return {k: st.secrets[k] for k in st.secrets}
-    except Exception:
-        return {}
-
-
-def _ler_conta_servico(cfg):
+def _ler_conta_servico():
+    cfg = {k: st.secrets[k] for k in st.secrets}
+    if "gcp_service_account" not in cfg:
+        raise RuntimeError("conta de serviço não configurada")
     import gspread
     from google.oauth2.service_account import Credentials
     cred = Credentials.from_service_account_info(
         dict(cfg["gcp_service_account"]),
         scopes=["https://www.googleapis.com/auth/spreadsheets.readonly"],
     )
-    planilha = gspread.authorize(cred).open_by_key(cfg.get("sheet_id", SHEET_ID))
-    abas = {}
-    for nome in GIDS:
-        try:
-            abas[nome] = planilha.worksheet(nome).get_all_values()
-        except Exception:
-            pass
-    return abas
+    return gspread.authorize(cred).open_by_key(cfg.get("sheet_id", SHEET_ID)).worksheet(ABA_DADOS).get_all_values()
 
 
-def _ler_csv_publicado(gid):
-    req = urllib.request.Request(PUB_URL.format(gid=gid), headers={"User-Agent": "Mozilla/5.0"})
-    with urllib.request.urlopen(req, timeout=20) as resp:
-        texto = resp.read().decode("utf-8-sig")
-    if texto.lstrip().lower().startswith(("<!doctype", "<html")):
-        raise ValueError("aba não publicada")
-    return list(csv.reader(io.StringIO(texto)))
-
-
-# ---------- interpretação ----------
-def _interpretar_dashboard(linhas):
+def _interpretar(linhas):
     """Acha o cabeçalho (coluna 'Nº'), lê as obras e para na linha TOTAL."""
     topo = " ".join(str(c) for r in linhas[:6] for c in r)
-    m = re.search(r"Atualizado em:?\s*(\d{2}/\d{2}/\d{4}\s+\d{2}:\d{2})", topo)
+    m = re.search(r"Atualizado em:?\s*(\d{2}/\d{2}/\d{4}(?:\s+\d{2}:\d{2})?)", topo)
     atualizado = m.group(1) if m else None
 
-    ih = _linha_cabecalho(linhas, "Nº")
+    ih = next(i for i, r in enumerate(linhas) if r and str(r[0]).strip() == "Nº")
     cab = [str(c).strip() for c in linhas[ih]]
     pos = {c: cab.index(c) for c in COLUNAS}
 
@@ -382,52 +329,6 @@ def _interpretar_dashboard(linhas):
     if not registros:
         raise ValueError("Nenhuma obra encontrada na aba Dados_Dashboard.")
     return pd.DataFrame(registros, columns=COLUNAS), atualizado
-
-
-def _interpretar_obras(linhas):
-    ih = _linha_cabecalho(linhas, "Nº")
-    cab = [str(c).strip() for c in linhas[ih]]
-    if "Endereço" not in cab:  # garante que é mesmo a aba Obras
-        raise ValueError("cabeçalho da aba Obras não reconhecido")
-    p = {c: (cab.index(c) if c in cab else None) for c in ["Endereço", "Status", "Última Medição", "Observações"]}
-    regs = []
-    for r in linhas[ih + 1:]:
-        n = str(r[0]).strip() if r else ""
-        if not n.replace(".0", "").isdigit():
-            break
-        regs.append({
-            "Nº": int(float(n)),
-            "Endereço": str(_cel(r, p["Endereço"])).strip(),
-            "Status (aba Obras)": str(_cel(r, p["Status"])).strip(),
-            "Última Medição (aba Obras)": _data(_cel(r, p["Última Medição"])),
-            "Observações": str(_cel(r, p["Observações"])).strip(),
-        })
-    return pd.DataFrame(regs)
-
-
-def _interpretar_medicoes(linhas):
-    ih = _linha_cabecalho(linhas, "Data da Medição")
-    cab = [str(c).strip() for c in linhas[ih]]
-    def col(trecho):
-        return next((i for i, c in enumerate(cab) if c.lower().startswith(trecho.lower())), None)
-    p = {"data": 0, "n": col("Nº da Obra"), "nome": col("Nome da Obra"), "valor": col("Valor da Medição"),
-         "ref": col("Mês/Ano"), "resp": col("Responsável"), "obs": col("Observações")}
-    regs = []
-    for r in linhas[ih + 1:]:
-        d = _data(_cel(r, p["data"]))
-        n = str(_cel(r, p["n"])).strip()
-        if pd.isna(d) or not n.replace(".0", "").isdigit():
-            continue  # linha amarela ainda vazia
-        try:
-            valor = _num(_cel(r, p["valor"]))
-        except ValueError:
-            continue
-        regs.append({
-            "Data": d, "Nº": int(float(n)), "Obra": str(_cel(r, p["nome"])).strip(),
-            "Valor": valor, "Referência": str(_cel(r, p["ref"])).strip(),
-            "Responsável": str(_cel(r, p["resp"])).strip(), "Observações": str(_cel(r, p["obs"])).strip(),
-        })
-    return pd.DataFrame(regs, columns=["Data", "Nº", "Obra", "Valor", "Referência", "Responsável", "Observações"])
 
 
 def _dados_locais():
@@ -462,74 +363,30 @@ def _ultima_leitura_boa():
 
 @st.cache_data(ttl=60, show_spinner=False)
 def carregar_dados():
-    """Retorna um dicionário com as tabelas, a origem dos dados e eventuais erros."""
+    """Retorna (tabela, texto 'Atualizado em', erros)."""
     erros = []
-    abas, origem = {}, None
-
-    cfg = _segredos()
-    if "gcp_service_account" in cfg:
+    for leitor in (_ler_csv_publicado, _ler_conta_servico):
         try:
-            abas = _ler_conta_servico(cfg)
-            origem = "Google Sheets (conta de serviço)"
+            df_, atualizado = _interpretar(leitor())
+            return df_, atualizado, erros
         except Exception as e:
-            erros.append(f"Conta de serviço: {type(e).__name__}: {str(e)[:160]}")
-
-    for nome, gid in GIDS.items():
-        if nome not in abas:
-            try:
-                abas[nome] = _ler_csv_publicado(gid)
-                origem = origem or "Google Sheets (publicado na web)"
-            except Exception as e:
-                if nome == ABA_DADOS:
-                    erros.append(f"{nome}: {type(e).__name__}: {str(e)[:160]}")
-
-    res = {"df": None, "obras": None, "med": None, "atualizado": None, "origem": origem, "erros": erros}
-    try:
-        res["df"], res["atualizado"] = _interpretar_dashboard(abas[ABA_DADOS])
-    except Exception as e:
-        erros.append(f"{ABA_DADOS}: {type(e).__name__}: {str(e)[:160]}")
-        res["origem"] = None
-
-    if res["df"] is not None:
-        for chave, aba, func in (("obras", ABA_OBRAS, _interpretar_obras), ("med", ABA_MED, _interpretar_medicoes)):
-            if aba in abas:
-                try:
-                    res[chave] = func(abas[aba])
-                except Exception:
-                    pass  # aba não publicada ou com layout diferente: o painel segue sem ela
-        return res
-    return res
+            erros.append(f"{leitor.__name__}: {type(e).__name__}: {str(e)[:160]}")
+    return None, None, erros
 
 
-dados = carregar_dados()
+df, planilha_atualizada, erros_dados = carregar_dados()
 memoria = _ultima_leitura_boa()
-if dados["df"] is not None:
-    memoria.clear(); memoria.update(dados); memoria["quando"] = datetime.now(ZoneInfo("America/Sao_Paulo"))
+lido_em = datetime.now(FUSO)
+if df is not None:
+    memoria.update({"df": df, "atualizado": planilha_atualizada, "quando": lido_em})
     modo = "planilha"
 elif memoria:
-    dados = {**memoria, "erros": dados["erros"]}
+    df, planilha_atualizada = memoria["df"], memoria["atualizado"]
     modo = "memoria"
 else:
-    dados = {"df": _dados_locais(), "obras": None, "med": None, "atualizado": None,
-             "origem": "cópia local", "erros": dados["erros"]}
+    df, planilha_atualizada = _dados_locais(), "22/10/2026"
     modo = "local"
-
-df = dados["df"].copy()
-df_obras, df_med = dados["obras"], dados["med"]
-
-# Enriquecer com endereço, observações e data da última medição
-df["Endereço"], df["Observações"], df["Última Medição"] = "", "", pd.NaT
-if df_obras is not None and not df_obras.empty:
-    df = df.drop(columns=["Endereço", "Observações", "Última Medição"]).merge(df_obras, on="Nº", how="left")
-    df["Última Medição"] = df["Última Medição (aba Obras)"]
-    df["Endereço"] = df["Endereço"].fillna("")
-    df["Observações"] = df["Observações"].fillna("")
-if df_med is not None and not df_med.empty:
-    ult = df_med.groupby("Nº")["Data"].max()
-    df["Última Medição"] = df["Nº"].map(ult).combine_first(df["Última Medição"])
-df["Dias sem medição"] = df["Última Medição"].apply(lambda d: (HOJE - d.date()).days if pd.notna(d) else None)
-
-ultima_medicao_geral = df["Última Medição"].max()
+df = df.copy()
 
 
 def brl(v):
@@ -540,45 +397,11 @@ def pct(x):
     return f"{x*100:.1f}%".replace(".", ",")
 
 
-def dt(d):
-    return d.strftime("%d/%m/%Y") if pd.notna(d) else "—"
-
-
-# ---------- Pontos de atenção (conferência automática da planilha) ----------
-avisos = []
-for _, r in df.iterrows():
-    nome = r["Nome da Obra"]
-    if abs(r["Valor Contrato"] - r["Total Medido"] - r["Saldo a Receber"]) > 1:
-        avisos.append(f"<b>{nome}</b>: saldo a receber não bate com contrato − medido.")
-    if r["Valor Contrato"] > 0 and r["Total Medido"] > r["Valor Contrato"] + 1:
-        avisos.append(f"<b>{nome}</b>: total medido passou do valor do contrato ({pct(r['% Medido'])}).")
-    if r["Status"] == "Ativo" and r["Valor Contrato"] > 0 and r["Dias sem medição"] is not None \
-            and r["Dias sem medição"] > DIAS_ALERTA:
-        avisos.append(f"<b>{nome}</b>: sem medição há {int(r['Dias sem medição'])} dias (última em {dt(r['Última Medição'])}).")
-    if r["Total Medido"] > 0 and "aguardando" in str(r["Observações"]).lower():
-        avisos.append(f"<b>{nome}</b>: já tem medição, mas a observação na aba Obras ainda diz “{_html.escape(str(r['Observações']))}”.")
-    st_obras = str(r.get("Status (aba Obras)", "") or "")
-    if st_obras and st_obras != "nan" and st_obras != r["Status"]:
-        avisos.append(f"<b>{nome}</b>: status diferente entre as abas (Obras: “{_html.escape(st_obras)}” × "
-                      f"Dados_Dashboard: “{_html.escape(r['Status'])}”).")
-if df_med is not None and not df_med.empty:
-    soma = df_med.groupby("Nº")["Valor"].sum()
-    for _, r in df.iterrows():
-        s = soma.get(r["Nº"], 0.0)
-        if abs(s - r["Total Medido"]) > 1:
-            avisos.append(f"<b>{r['Nome da Obra']}</b>: soma da aba Medições ({brl(s)}) diferente do total medido ({brl(r['Total Medido'])}).")
-if dados["atualizado"] and pd.notna(ultima_medicao_geral):
-    carimbo = pd.to_datetime(dados["atualizado"], format="%d/%m/%Y %H:%M", errors="coerce")
-    if pd.notna(carimbo) and carimbo.normalize() < ultima_medicao_geral:
-        avisos.append(f"O texto <b>“Atualizado em: {dados['atualizado']}”</b> da planilha é anterior à última medição "
-                      f"lançada ({dt(ultima_medicao_geral)}). Vale atualizar esse carimbo.")
-
 # ==================== CABEÇALHO ====================
 partes = []
-if dados["atualizado"]:
-    partes.append(f"Planilha atualizada em <b>{dados['atualizado']}</b>")
-if pd.notna(ultima_medicao_geral):
-    partes.append(f"Última medição: <b>{dt(ultima_medicao_geral)}</b>")
+if planilha_atualizada:
+    partes.append(f"Última medição lançada: <b>{planilha_atualizada}</b>")
+partes.append(f"Consultado em <b>{lido_em:%d/%m/%Y %H:%M}</b>")
 stamp = '<span class="dot">•</span>'.join(partes)
 
 st.markdown(f"""
@@ -593,20 +416,14 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 if modo == "local":
-    st.warning(
-        "Planilha do Google não conectada: exibindo a cópia local dos dados de 22/10/2026. "
-        "Os valores abaixo podem estar desatualizados.",
-        icon="⚠️",
-    )
+    st.warning("Planilha do Google não conectada: exibindo a cópia local dos dados de 22/10/2026. "
+               "Os valores abaixo podem estar desatualizados.", icon="⚠️")
 elif modo == "memoria":
-    st.warning(
-        f"O Google não respondeu agora. Exibindo a última leitura válida "
-        f"({memoria['quando']:%d/%m/%Y %H:%M}). Tente “Atualizar dados” em instantes.",
-        icon="⚠️",
-    )
-if modo != "planilha" and dados["erros"]:
+    st.warning(f"O Google não respondeu agora. Exibindo a última leitura válida "
+               f"({memoria['quando']:%d/%m/%Y %H:%M}). Tente “Atualizar dados” em instantes.", icon="⚠️")
+if modo != "planilha" and erros_dados:
     with st.expander("Detalhe técnico"):
-        st.code("\n".join(dados["erros"]))
+        st.code("\n".join(erros_dados))
 
 # ==================== FILTROS ====================
 painel_filtros = st.container(border=True)
@@ -615,19 +432,12 @@ f1, f2, f3, f4 = painel_filtros.columns([1.2, 2.2, 1.2, 0.9])
 with f1:
     status_opcoes = ["Todos"] + sorted(df["Status"].unique().tolist())
     filtro_status = st.selectbox("Status da obra", status_opcoes)
-
 with f2:
-    filtro_obra = st.multiselect(
-        "Selecionar obras",
-        options=df["Nome da Obra"].tolist(),
-        default=None,
-        placeholder="Todas as obras"
-    )
-
+    filtro_obra = st.multiselect("Selecionar obras", options=df["Nome da Obra"].tolist(),
+                                 default=None, placeholder="Todas as obras")
 with f3:
     st.markdown("<div style='height: 1.9rem'></div>", unsafe_allow_html=True)
     mostrar_apenas_ativos = st.checkbox("Somente com contrato", value=True)
-
 with f4:
     st.markdown("<div style='height: 1.7rem'></div>", unsafe_allow_html=True)
     if st.button("Atualizar dados", width="stretch"):
@@ -652,279 +462,186 @@ perc_geral     = (total_medido / total_contrato) if total_contrato > 0 else 0
 qtd_obras      = len(df_f)
 qtd_ativas     = len(df_f[df_f["Status"] == "Ativo"])
 
+# ==================== INDICADORES ====================
+c1, c2, c3, c4 = st.columns(4)
+with c1:
+    st.markdown(f"""
+    <div class="kpi-card verde">
+        <div class="kpi-label">Saldo a receber</div>
+        <p class="kpi-value">{brl(total_saldo)}</p>
+        <div class="kpi-sub">Valor em aberto</div>
+    </div>""", unsafe_allow_html=True)
+with c2:
+    st.markdown(f"""
+    <div class="kpi-card laranja">
+        <div class="kpi-label">Total medido</div>
+        <p class="kpi-value">{brl(total_medido)}</p>
+        <div class="kpi-sub">{pct(perc_geral)} dos contratos</div>
+    </div>""", unsafe_allow_html=True)
+with c3:
+    st.markdown(f"""
+    <div class="kpi-card azul">
+        <div class="kpi-label">Total de contratos</div>
+        <p class="kpi-value">{brl(total_contrato)}</p>
+        <div class="kpi-sub">{qtd_obras} obras • {qtd_ativas} ativas</div>
+    </div>""", unsafe_allow_html=True)
+with c4:
+    st.markdown(f"""
+    <div class="kpi-card grafite">
+        <div class="kpi-label">% medido</div>
+        <p class="kpi-value">{pct(perc_geral)}</p>
+        <div class="kpi-sub">Progresso geral</div>
+    </div>""", unsafe_allow_html=True)
+
+st.markdown(f"""
+<div class="progress-wrap">
+    <div class="progress-head"><span>Progresso geral de medição ({brl(total_medido)} de {brl(total_contrato)})</span><b>{pct(perc_geral)}</b></div>
+    <div class="progress-track"><div class="progress-fill" style="width:{min(perc_geral*100,100):.1f}%"></div></div>
+</div>
+""", unsafe_allow_html=True)
+
+# Alerta só aparece se alguma obra tiver medição acima do valor do contrato
+acima = df_f[(df_f["Valor Contrato"] > 0) & (df_f["Total Medido"] > df_f["Valor Contrato"] + 1)]
+if not acima.empty:
+    st.markdown("<div style='height: 0.8rem'></div>", unsafe_allow_html=True)
+    st.markdown("".join(
+        f'<div class="aviso"><b>{_html.escape(r["Nome da Obra"])}</b>: total medido acima do contrato ({pct(r["% Medido"])}). Confira a aba Medições.</div>'
+        for _, r in acima.iterrows()), unsafe_allow_html=True)
+
+st.markdown("<div style='height: 1.4rem'></div>", unsafe_allow_html=True)
+
+# ==================== GRÁFICOS ====================
+df_saldo = df_f[df_f["Saldo a Receber"] > 0].sort_values("Saldo a Receber", ascending=True)
+df_perc  = df_f[df_f["Valor Contrato"] > 0].sort_values("% Medido", ascending=True)
+n_barras = max(len(df_saldo), len(df_perc), 1)
+altura_grafico = max(280, min(38 * n_barras + 80, 600))
 FONTE = dict(family="Inter", size=12, color="#17181A")
 
-aba_geral, aba_med = st.tabs(["Visão geral", "Medições lançadas"])
-
-# =====================================================================
-# ABA 1 — VISÃO GERAL
-# =====================================================================
-with aba_geral:
-    st.markdown("<div style='height: 0.6rem'></div>", unsafe_allow_html=True)
-    c1, c2, c3, c4 = st.columns(4)
-    with c1:
-        st.markdown(f"""
-        <div class="kpi-card verde">
-            <div class="kpi-label">Saldo a receber</div>
-            <p class="kpi-value">{brl(total_saldo)}</p>
-            <div class="kpi-sub">Valor em aberto</div>
-        </div>""", unsafe_allow_html=True)
-    with c2:
-        st.markdown(f"""
-        <div class="kpi-card laranja">
-            <div class="kpi-label">Total medido</div>
-            <p class="kpi-value">{brl(total_medido)}</p>
-            <div class="kpi-sub">{pct(perc_geral)} dos contratos</div>
-        </div>""", unsafe_allow_html=True)
-    with c3:
-        st.markdown(f"""
-        <div class="kpi-card azul">
-            <div class="kpi-label">Total de contratos</div>
-            <p class="kpi-value">{brl(total_contrato)}</p>
-            <div class="kpi-sub">{qtd_obras} obras • {qtd_ativas} ativas</div>
-        </div>""", unsafe_allow_html=True)
-    with c4:
-        st.markdown(f"""
-        <div class="kpi-card grafite">
-            <div class="kpi-label">% medido</div>
-            <p class="kpi-value">{pct(perc_geral)}</p>
-            <div class="kpi-sub">Progresso geral</div>
-        </div>""", unsafe_allow_html=True)
-
-    st.markdown(f"""
-    <div class="progress-wrap">
-        <div class="progress-head"><span>Progresso geral de medição ({brl(total_medido)} de {brl(total_contrato)})</span><b>{pct(perc_geral)}</b></div>
-        <div class="progress-track"><div class="progress-fill" style="width:{min(perc_geral*100,100):.1f}%"></div></div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    if avisos:
-        st.markdown("<div style='height: 0.8rem'></div>", unsafe_allow_html=True)
-        with st.expander(f"Pontos de atenção na planilha ({len(avisos)})"):
-            st.markdown("".join(f'<div class="aviso">{a}</div>' for a in avisos), unsafe_allow_html=True)
-
-    st.markdown("<div style='height: 1.2rem'></div>", unsafe_allow_html=True)
-
-    # ---------- Gráficos ----------
-    df_saldo = df_f[df_f["Saldo a Receber"] > 0].sort_values("Saldo a Receber", ascending=True)
-    df_perc  = df_f[df_f["Valor Contrato"] > 0].sort_values("% Medido", ascending=True)
-    n_barras = max(len(df_saldo), len(df_perc), 1)
-    altura_grafico = max(280, min(38 * n_barras + 80, 600))
-
-    col1, col2 = st.columns(2)
-    with col1:
-        st.markdown('<p class="chart-title">Saldo a receber por obra</p>', unsafe_allow_html=True)
-        if not df_saldo.empty:
-            fig = px.bar(
-                df_saldo, x="Saldo a Receber", y="Nome da Obra", orientation="h",
-                text="Saldo a Receber", color="Saldo a Receber",
-                color_continuous_scale=["#F9CFA8", "#D9701F"],
-            )
-            fig.update_traces(texttemplate="R$ %{x:,.0f}", textposition="outside", marker_line_width=0,
-                              textfont=dict(size=11, color="#17181A"), cliponaxis=False)
-            fig.update_layout(
-                height=altura_grafico, margin=dict(l=8, r=80, t=8, b=8), xaxis_title="", yaxis_title="",
-                coloraxis_showscale=False, plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
-                font=FONTE, separators=",.",
-                xaxis=dict(showgrid=True, gridcolor="#EEEBE6", tickprefix="R$ ", automargin=True),
-                yaxis=dict(automargin=True),
-            )
-            st.plotly_chart(fig, width="stretch", theme=None, config={"displayModeBar": False, "staticPlot": True})
-        else:
-            st.info("Nenhuma obra com saldo no filtro atual.")
-
-    with col2:
-        st.markdown('<p class="chart-title">% medido por obra</p>', unsafe_allow_html=True)
-        if not df_perc.empty:
-            cores = ["#D64545" if x < 0.30 else "#F2B134" if x < 0.70 else "#2E9E6B" for x in df_perc["% Medido"]]
-            fig2 = go.Figure(go.Bar(
-                x=df_perc["% Medido"] * 100, y=df_perc["Nome da Obra"], orientation="h", marker_color=cores,
-                text=[pct(v) for v in df_perc["% Medido"]], textposition="outside",
-                textfont=dict(size=11, color="#17181A"), cliponaxis=False,
-            ))
-            fig2.update_layout(
-                height=altura_grafico, margin=dict(l=8, r=55, t=8, b=8),
-                xaxis=dict(title="", range=[0, 120], ticksuffix="%", showgrid=True, gridcolor="#EEEBE6", automargin=True),
-                yaxis=dict(title="", automargin=True),
-                plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)", font=FONTE, showlegend=False,
-            )
-            st.plotly_chart(fig2, width="stretch", theme=None, config={"displayModeBar": False, "staticPlot": True})
-            st.caption("Faixas de cor: abaixo de 30% • de 30% a 70% • acima de 70%")
-        else:
-            st.info("Sem dados de percentual.")
-
-    # ---------- Tabela ----------
-    st.markdown("<div style='height: 1rem'></div>", unsafe_allow_html=True)
-    t1, t2 = st.columns([4, 1])
-    with t1:
-        st.markdown('<div class="section-title">Detalhamento por obra</div>', unsafe_allow_html=True)
-
-    def _cor_pct(p):
-        return "#D64545" if p < 0.30 else "#F2B134" if p < 0.70 else "#2E9E6B"
-
-    def _celula_data(r):
-        d, dias = r["Última Medição"], r["Dias sem medição"]
-        if pd.isna(d):
-            return '<td class="data">—</td>'
-        txt = "hoje" if dias == 0 else "ontem" if dias == 1 else f"há {int(dias)} dias"
-        alerta = " alerta" if (r["Status"] == "Ativo" and dias > DIAS_ALERTA) else ""
-        return f'<td class="data">{dt(d)}<small class="{alerta.strip()}">{txt}</small></td>'
-
-    def _tabela_html(d):
-        linhas = []
-        for _, r in d.iterrows():
-            p = float(r["% Medido"])
-            classe = "ok" if r["Status"] == "Ativo" else "primeira" if "medição" in str(r["Status"]).lower() else "espera"
-            end = _html.escape(str(r["Endereço"])) if r["Endereço"] else ""
-            obs = _html.escape(str(r["Observações"])) if r["Observações"] else ""
-            linhas.append(
-                "<tr>"
-                f'<td class="n">{int(r["Nº"])}</td>'
-                f'<td class="obra" title="{obs}">{_html.escape(str(r["Nome da Obra"]))}'
-                + (f"<small>{end}</small>" if end else "") + "</td>"
-                f'<td class="num">{brl(r["Valor Contrato"])}</td>'
-                f'<td class="num">{brl(r["Total Medido"])}</td>'
-                f'<td class="num">{brl(r["Saldo a Receber"])}</td>'
-                f'<td class="pct"><div class="bar"><i style="width:{min(p*100,100):.1f}%;background:{_cor_pct(p)}"></i></div>'
-                f'<span>{pct(p)}</span></td>'
-                + _celula_data(r) +
-                f'<td><span class="badge {classe}">{_html.escape(str(r["Status"]))}</span></td>'
-                "</tr>"
-            )
-        return (
-            '<div class="tbl-wrap"><table class="tbl" style="min-width:900px"><thead><tr>'
-            '<th class="n">Nº</th><th class="obra">Obra</th><th class="num">Valor Contrato</th>'
-            '<th class="num">Total Medido</th><th class="num">Saldo a Receber</th>'
-            '<th>% Medido</th><th>Última medição</th><th>Status</th></tr></thead><tbody>'
-            + "".join(linhas) + "</tbody></table></div>"
+col1, col2 = st.columns(2)
+with col1:
+    st.markdown('<p class="chart-title">Saldo a receber por obra</p>', unsafe_allow_html=True)
+    if not df_saldo.empty:
+        fig = px.bar(df_saldo, x="Saldo a Receber", y="Nome da Obra", orientation="h",
+                     text="Saldo a Receber", color="Saldo a Receber",
+                     color_continuous_scale=["#F9CFA8", "#D9701F"])
+        fig.update_traces(texttemplate="R$ %{x:,.0f}", textposition="outside", marker_line_width=0,
+                          textfont=dict(size=11, color="#17181A"), cliponaxis=False)
+        fig.update_layout(
+            height=altura_grafico, margin=dict(l=8, r=80, t=8, b=8), xaxis_title="", yaxis_title="",
+            coloraxis_showscale=False, plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+            font=FONTE, separators=",.",
+            xaxis=dict(showgrid=True, gridcolor="#EEEBE6", tickprefix="R$ ", automargin=True),
+            yaxis=dict(automargin=True),
         )
-
-    def _excel(d, med):
-        buf = io.BytesIO()
-        with pd.ExcelWriter(buf, engine="openpyxl") as xw:
-            out = d[["Nº", "Nome da Obra", "Endereço", "Valor Contrato", "Total Medido", "Saldo a Receber",
-                     "% Medido", "Status", "Última Medição", "Observações"]].copy()
-            out["Última Medição"] = out["Última Medição"].dt.date
-            out.to_excel(xw, sheet_name="Obras", index=False)
-            if med is not None and not med.empty:
-                m = med[med["Nº"].isin(d["Nº"])].sort_values("Data", ascending=False).copy()
-                m["Data"] = m["Data"].dt.date
-                m.to_excel(xw, sheet_name="Medições", index=False)
-            for ws in xw.book.worksheets:
-                for col in ws.columns:
-                    ws.column_dimensions[col[0].column_letter].width = max(12, min(48, max(len(str(c.value or "")) for c in col) + 2))
-                for row in ws.iter_rows(min_row=2):
-                    for c in row:
-                        h = ws.cell(1, c.column).value
-                        if h in ("Valor Contrato", "Total Medido", "Saldo a Receber", "Valor"):
-                            c.number_format = '"R$" #,##0.00'
-                        elif h == "% Medido":
-                            c.number_format = "0.0%"
-                        elif h in ("Última Medição", "Data"):
-                            c.number_format = "DD/MM/YYYY"
-        return buf.getvalue()
-
-    with t2:
-        if not df_f.empty:
-            st.download_button(
-                "Baixar Excel", data=_excel(df_f, df_med),
-                file_name=f"medicoes_obras_{HOJE:%Y-%m-%d}.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                width="stretch",
-            )
-
-    if df_f.empty:
-        st.info("Nenhuma obra no filtro atual.")
+        st.plotly_chart(fig, width="stretch", theme=None, config={"displayModeBar": False, "staticPlot": True})
     else:
-        st.markdown(_tabela_html(df_f), unsafe_allow_html=True)
-        if df_obras is not None:
-            st.caption("Passe o mouse sobre o nome da obra para ver as observações da aba Obras.")
+        st.info("Nenhuma obra com saldo no filtro atual.")
 
-# =====================================================================
-# ABA 2 — MEDIÇÕES LANÇADAS
-# =====================================================================
-with aba_med:
-    st.markdown("<div style='height: 0.6rem'></div>", unsafe_allow_html=True)
-    if df_med is None:
-        st.info(
-            "A aba **Medições** não está acessível para o painel. Para ativar esta tela, no Google Sheets vá em "
-            "*Arquivo → Compartilhar → Publicar na Web* e publique o **Documento inteiro** (formato CSV) — "
-            "ou configure a conta de serviço em *Settings → Secrets* no Streamlit Cloud.",
-            icon="ℹ️",
+with col2:
+    st.markdown('<p class="chart-title">% medido por obra</p>', unsafe_allow_html=True)
+    if not df_perc.empty:
+        cores = ["#D64545" if x < 0.30 else "#F2B134" if x < 0.70 else "#2E9E6B" for x in df_perc["% Medido"]]
+        fig2 = go.Figure(go.Bar(
+            x=df_perc["% Medido"] * 100, y=df_perc["Nome da Obra"], orientation="h", marker_color=cores,
+            text=[pct(v) for v in df_perc["% Medido"]], textposition="outside",
+            textfont=dict(size=11, color="#17181A"), cliponaxis=False,
+        ))
+        fig2.update_layout(
+            height=altura_grafico, margin=dict(l=8, r=55, t=8, b=8),
+            xaxis=dict(title="", range=[0, 120], ticksuffix="%", showgrid=True, gridcolor="#EEEBE6", automargin=True),
+            yaxis=dict(title="", automargin=True),
+            plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)", font=FONTE, showlegend=False,
         )
+        st.plotly_chart(fig2, width="stretch", theme=None, config={"displayModeBar": False, "staticPlot": True})
+        st.caption("Faixas de cor: abaixo de 30% • de 30% a 70% • acima de 70%")
     else:
-        m = df_med[df_med["Nº"].isin(df_f["Nº"])].copy()
-        if m.empty:
-            st.info("Nenhuma medição lançada para as obras do filtro atual.")
-        else:
-            inicial = m["Referência"].str.lower().str.startswith("acumulado") | \
-                      m["Observações"].str.lower().str.contains("acumulada anterior")
-            m["Tipo"] = inicial.map({True: "Saldo inicial (acumulado)", False: "Medição do período"})
+        st.info("Sem dados de percentual.")
 
-            k1, k2, k3 = st.columns(3)
-            for col, rot, val in (
-                (k1, "Lançamentos", f"{len(m)}"),
-                (k2, "Total lançado", brl(m["Valor"].sum())),
-                (k3, "Última medição", dt(m["Data"].max())),
-            ):
-                col.markdown(f'<div class="mini"><div class="l">{rot}</div><div class="v">{val}</div></div>',
-                             unsafe_allow_html=True)
+# ==================== TABELA ====================
+st.markdown("<div style='height: 1rem'></div>", unsafe_allow_html=True)
+t1, t2 = st.columns([4, 1])
+with t1:
+    st.markdown('<div class="section-title">Detalhamento por obra</div>', unsafe_allow_html=True)
 
-            st.markdown("<div style='height: 1rem'></div>", unsafe_allow_html=True)
-            st.markdown('<p class="chart-title">Valor medido por mês</p>', unsafe_allow_html=True)
-            m["Mês"] = m["Data"].dt.to_period("M").dt.to_timestamp()
-            por_mes = m.groupby(["Mês", "Tipo"], as_index=False)["Valor"].sum()
-            MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"]
-            por_mes["Rótulo"] = por_mes["Mês"].apply(lambda d: f"{MESES[d.month-1]}/{d.year}")
-            ordem = [f"{MESES[d.month-1]}/{d.year}" for d in sorted(por_mes["Mês"].unique())]
-            fig3 = px.bar(
-                por_mes, x="Rótulo", y="Valor", color="Tipo", barmode="stack",
-                category_orders={"Rótulo": ordem, "Tipo": ["Saldo inicial (acumulado)", "Medição do período"]},
-                color_discrete_map={"Saldo inicial (acumulado)": "#C9C4BC", "Medição do período": "#EF883B"},
-            )
-            totais = por_mes.groupby("Rótulo")["Valor"].sum()
-            fig3.update_traces(marker_line_width=0, width=0.45 if len(ordem) < 4 else None)
-            fig3.add_trace(go.Scatter(
-                x=totais.index, y=totais.values, mode="text", showlegend=False, textposition="top center",
-                text=[brl(v) for v in totais.values], textfont=dict(size=12, color="#17181A"), hoverinfo="skip",
-            ))
-            fig3.update_layout(
-                height=340, margin=dict(l=8, r=8, t=40, b=8), xaxis_title="", yaxis_title="",
-                plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)", font=FONTE, separators=",.",
-                xaxis=dict(type="category", automargin=True),
-                yaxis=dict(showgrid=True, gridcolor="#EEEBE6", tickprefix="R$ ", tickformat=",.0f",
-                           automargin=True, range=[0, totais.max() * 1.18]),
-                legend=dict(orientation="h", y=1.12, x=0, title=""),
-            )
-            st.plotly_chart(fig3, width="stretch", theme=None, config={"displayModeBar": False, "staticPlot": True})
-            if inicial.all():
-                st.caption("Por enquanto só existem os valores acumulados iniciais. A partir dos próximos "
-                           "lançamentos (linhas amarelas da aba Medições) o gráfico mostra a evolução mês a mês.")
 
-            st.markdown("<div style='height: 0.6rem'></div>", unsafe_allow_html=True)
-            st.markdown('<div class="section-title">Lançamentos</div>', unsafe_allow_html=True)
-            linhas = []
-            for _, r in m.sort_values(["Data", "Nº"], ascending=[False, True]).iterrows():
-                linhas.append(
-                    "<tr>"
-                    f'<td>{dt(r["Data"])}</td>'
-                    f'<td class="obra">{_html.escape(r["Obra"])}</td>'
-                    f'<td class="num">{brl(r["Valor"])}</td>'
-                    f'<td>{_html.escape(r["Referência"])}</td>'
-                    f'<td>{_html.escape(r["Responsável"])}</td>'
-                    f'<td>{_html.escape(r["Observações"])}</td>'
-                    "</tr>"
-                )
-            st.markdown(
-                '<div class="tbl-wrap"><table class="tbl"><thead><tr>'
-                '<th>Data</th><th class="obra">Obra</th><th class="num">Valor</th><th>Referência</th>'
-                '<th>Responsável</th><th>Observações</th></tr></thead><tbody>'
-                + "".join(linhas) + "</tbody></table></div>",
-                unsafe_allow_html=True,
-            )
+def _cor_pct(p):
+    return "#D64545" if p < 0.30 else "#F2B134" if p < 0.70 else "#2E9E6B"
+
+
+def _tabela_html(d):
+    linhas = []
+    for _, r in d.iterrows():
+        p = float(r["% Medido"])
+        classe = "ok" if r["Status"] == "Ativo" else "primeira" if "medição" in str(r["Status"]).lower() else "espera"
+        linhas.append(
+            "<tr>"
+            f'<td class="n">{int(r["Nº"])}</td>'
+            f'<td class="obra">{_html.escape(str(r["Nome da Obra"]))}</td>'
+            f'<td class="num">{brl(r["Valor Contrato"])}</td>'
+            f'<td class="num">{brl(r["Total Medido"])}</td>'
+            f'<td class="num">{brl(r["Saldo a Receber"])}</td>'
+            f'<td class="pct"><div class="bar"><i style="width:{min(p*100,100):.1f}%;background:{_cor_pct(p)}"></i></div>'
+            f'<span>{pct(p)}</span></td>'
+            f'<td><span class="badge {classe}">{_html.escape(str(r["Status"]))}</span></td>'
+            "</tr>"
+        )
+    total = (
+        '<tr class="total">'
+        '<td class="n"></td><td class="obra"><b>TOTAL</b></td>'
+        f'<td class="num"><b>{brl(d["Valor Contrato"].sum())}</b></td>'
+        f'<td class="num"><b>{brl(d["Total Medido"].sum())}</b></td>'
+        f'<td class="num"><b>{brl(d["Saldo a Receber"].sum())}</b></td>'
+        f'<td class="pct"><b>{pct(d["Total Medido"].sum() / d["Valor Contrato"].sum() if d["Valor Contrato"].sum() > 0 else 0)}</b></td>'
+        "<td></td></tr>"
+    )
+    return (
+        '<div class="tbl-wrap"><table class="tbl"><thead><tr>'
+        '<th class="n">Nº</th><th class="obra">Obra</th><th class="num">Valor Contrato</th>'
+        '<th class="num">Total Medido</th><th class="num">Saldo a Receber</th>'
+        '<th>% Medido</th><th>Status</th></tr></thead><tbody>'
+        + "".join(linhas) + total + "</tbody></table></div>"
+    )
+
+
+def _excel(d):
+    buf = io.BytesIO()
+    with pd.ExcelWriter(buf, engine="openpyxl") as xw:
+        d[COLUNAS].to_excel(xw, sheet_name="Obras", index=False)
+        ws = xw.book["Obras"]
+        n = len(d) + 2
+        ws.cell(n, 2, "TOTAL")
+        for col, letra in ((3, "C"), (4, "D"), (5, "E")):
+            ws.cell(n, col, f"=SUM({letra}2:{letra}{n-1})")
+        ws.cell(n, 6, f"=IF(C{n}>0,D{n}/C{n},0)")
+        larguras = {"A": 6, "B": 28, "C": 18, "D": 18, "E": 18, "F": 11, "G": 24}
+        for letra, w in larguras.items():
+            ws.column_dimensions[letra].width = w
+        for row in ws.iter_rows(min_row=2, max_row=n):
+            for c in row:
+                if c.column in (3, 4, 5):
+                    c.number_format = '"R$" #,##0.00'
+                elif c.column == 6:
+                    c.number_format = "0.0%"
+        from openpyxl.styles import Font
+        for c in ws[1] + ws[n]:
+            c.font = Font(bold=True)
+    return buf.getvalue()
+
+
+with t2:
+    if not df_f.empty:
+        st.download_button("Baixar Excel", data=_excel(df_f),
+                           file_name=f"medicoes_obras_{lido_em:%Y-%m-%d}.xlsx",
+                           mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                           width="stretch")
+
+if df_f.empty:
+    st.info("Nenhuma obra no filtro atual.")
+else:
+    st.markdown(_tabela_html(df_f), unsafe_allow_html=True)
 
 st.markdown("---")
-st.caption(f"Augusto Engenharia • Controle de Medições e Saldos • Uso interno • Fonte: {dados['origem'] or 'cópia local'}")
+st.caption("Augusto Engenharia • Controle de Medições e Saldos • Uso interno • Dados: aba Dados_Dashboard (Google Sheets)")
 
 # ==================== LAYOUT DE COMPUTADOR TAMBÉM NO CELULAR ====================
 # Força a página a ser montada com largura de computador (1000 px) e depois reduzida

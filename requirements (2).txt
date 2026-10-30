@@ -1,0 +1,8 @@
+streamlit>=1.66
+pandas
+plotly
+pillow
+openpyxl
+tzdata
+gspread
+google-auth
